@@ -29,7 +29,7 @@ function Location(city) {
 }
 
 function locationHandler(request, response) {
-  const city = request.query.city.a;
+  const city = request.query.city;
   const locationData = new Location(city);
   response.json(locationData);
 }
