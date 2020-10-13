@@ -47,6 +47,12 @@ function weatherHandler(request, response) {
   response.json(weath_json.data.map((value) => new Weather(value)));
 }
 
+app.use(errorHandler);
+
+function errorHandler(error, request, response, next) {
+  console.log(error);
+  response.status(500).send('Something went wrong ):')
+}
 
 app.listen(PORT, () => {
   console.log(`server up: ${PORT}`);
