@@ -21,19 +21,31 @@ app.get('/', (request, response) => {
 // Location will be replaced with an actual function
 app.get('/location', locationHandler);
 
-function Location(city, geoData) {
+function Location(city) {
   this.search_query = city;
-  this.formatted_query = geoData[0].display_name;
-  this.latitude = geoData[0].lat;
-  this.longitude = geoData[0].lon;
+  this.formatted_query = loc_json[0].display_name;
+  this.latitude = loc_json[0].lat;
+  this.longitude = loc_json[0].lon;
 }
 
 function locationHandler(request, response) {
   const city = request.query.city;
-  const locationData = new Location(city, loc_json);
+  const locationData = new Location(city);
   response.json(locationData);
 }
 
+
+app.get('/weather', weatherHandler);
+
+function Weather(data) {
+  this.forecast = data.weather.description;
+  this.time = data.datetime;
+}
+
+function weatherHandler(request, response) {
+  // const city = request.query.city;
+  response.json(weath_json.data.map((value) => new Weather(value)));
+}
 
 
 app.listen(PORT, () => {
