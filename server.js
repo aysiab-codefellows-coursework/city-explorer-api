@@ -1,10 +1,16 @@
 'use strict';
 
+// required 3rd party dependencies  
 require('dotenv').config();
-
 const express = require('express');
 const cors = require('cors');
-const loc_json = require('./data/location.json');
+const superagent = require('superagent');
+
+// API keys
+const GEOCODE_API = process.env.GEOCODE_API_KEY;
+const WEATHER_API = process.env.WEATHER_API_KEY;
+
+//const loc_json = require('./data/location.json');
 const weath_json = require('./data/weather.json');
 
 const app = express();
@@ -21,17 +27,22 @@ app.get('/', (request, response) => {
 // Location will be replaced with an actual function
 app.get('/location', locationHandler);
 
-function Location(city) {
+function Location(city, geoData) {
   this.search_query = city;
-  this.formatted_query = loc_json[0].display_name;
-  this.latitude = loc_json[0].lat;
-  this.longitude = loc_json[0].lon;
+  this.formatted_query = geoData.display_name;
+  this.latitude = geoData.lat;
+  this.longitude = geoData.lon;
 }
 
 function locationHandler(request, response) {
   const city = request.query.city;
-  const locationData = new Location(city);
-  response.json(locationData);
+  const GEO_URL = `https://us1.locationiq.com/v1/search.php?key=${GEOCODE_API}&q=${city}&format=json`;
+  superagent.get(GEO_URL)
+    .then(data => {
+      const geoData = data.body[0];
+      const locationData = new Location(city, geoData);
+      response.json(locationData);
+    })
 }
 
 
@@ -43,7 +54,8 @@ function Weather(data) {
 }
 
 function weatherHandler(request, response) {
-  // const city = request.query.city;
+  const city = request.query.city;
+  const WEATH_URL = `https://api.weatherbit.io/v2.0/forecast/daily?city=${city}&key=${WEATHER_API}`;
   response.json(weath_json.data.map((value) => new Weather(value)));
 }
 
