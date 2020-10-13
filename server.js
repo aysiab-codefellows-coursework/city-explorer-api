@@ -1,17 +1,18 @@
 'use strict';
 
-// required 3rd party dependencies  
+// required 3rd party dependencies
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const superagent = require('superagent');
+const { json } = require('express');
 
 // API keys
 const GEOCODE_API = process.env.GEOCODE_API_KEY;
 const WEATHER_API = process.env.WEATHER_API_KEY;
 
 //const loc_json = require('./data/location.json');
-const weath_json = require('./data/weather.json');
+// const weath_json = require('./data/weather.json');
 
 const app = express();
 
@@ -56,7 +57,11 @@ function Weather(data) {
 function weatherHandler(request, response) {
   const city = request.query.city;
   const WEATH_URL = `https://api.weatherbit.io/v2.0/forecast/daily?city=${city}&key=${WEATHER_API}`;
-  response.json(weath_json.data.map((value) => new Weather(value)));
+  superagent.get(WEATH_URL)
+    .then(weather => {
+      let weatherData = JSON.parse(weather.text);
+      response.json(weatherData.data.map((value) => new Weather(value)));
+    })
 }
 
 app.use(errorHandler);
