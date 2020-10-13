@@ -25,7 +25,7 @@ function Location(city, geoData) {
   this.search_query = city;
   this.formatted_query = geoData[0].display_name;
   this.latitude = geoData[0].lat;
-  this.longitutde = geoData[0].lon;
+  this.longitude = geoData[0].lon;
 }
 
 function locationHandler(request, response) {
