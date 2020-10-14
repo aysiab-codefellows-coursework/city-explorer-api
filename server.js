@@ -10,6 +10,7 @@ const { json } = require('express');
 // API keys
 const GEOCODE_API = process.env.GEOCODE_API_KEY;
 const WEATHER_API = process.env.WEATHER_API_KEY;
+const TRAILS_API = process.env.TRAILS_API_KEY;
 
 //const loc_json = require('./data/location.json');
 // const weath_json = require('./data/weather.json');
@@ -25,7 +26,7 @@ app.get('/', (request, response) => {
   response.send('my homepage :D');
 });
 
-// Location will be replaced with an actual function
+// Location 
 app.get('/location', locationHandler);
 
 function Location(city, geoData) {
@@ -47,6 +48,7 @@ function locationHandler(request, response) {
 }
 
 
+// Weather
 app.get('/weather', weatherHandler);
 
 function Weather(data) {
@@ -63,6 +65,39 @@ function weatherHandler(request, response) {
       response.json(weatherData.data.map((value) => new Weather(value)));
     })
 }
+
+
+//Trails
+app.get('/trails',trailsHandler);
+
+function Trail(data) {
+  this.name = data.name;
+  this.location = data.location;
+  this.length = data.length;
+  this.stars = data.stars;
+  this.star_votes = data.starVotes;
+  this.summary = data.summary;
+  this.trail_url = data.url;
+  this.conditions = data.conditionStatus;
+  this.conidtion_date = data.conditionDate;
+}
+
+function trailsHandler(request, response) {
+  const city = request.query.city;
+  const GEO_URL = `https://us1.locationiq.com/v1/search.php?key=${GEOCODE_API}&q=${city}&format=json`;
+  superagent.get(GEO_URL)
+    .then(data => {
+      const geoData = data.body[0];
+      const locationData = new Location(city, geoData);
+      const TRAILS_URL = `https://www.hikingproject.com/data/get-trails?lat=${locationData.latitude}&lon=${locationData.longitude}&maxDistance=10&key=${TRAILS_API}`;
+      superagent.get(TRAILS_URL)
+        .then(trails => {
+          let trailsData = JSON.parse(trails.text);
+          response.json(trailsData.trails.map((value) => new Trail(value)));
+        })
+    })
+}
+
 
 app.use(errorHandler);
 
