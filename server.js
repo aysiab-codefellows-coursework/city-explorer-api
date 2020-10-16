@@ -101,7 +101,6 @@ function weatherHandler(request, response) {
 // Retrieve Weather information via API request if it doesn't exist in SQL database
 function weatherGetAPI(request, response, city) {
   const WEATH_URL = `https://api.weatherbit.io/v2.0/forecast/daily?city=${city}&key=${WEATHER_API}`;
-  console.log(WEATH_URL);
   superagent.get(WEATH_URL)
     .then(weather => {
       let parseWeather = JSON.parse(weather.text);
