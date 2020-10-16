@@ -173,35 +173,6 @@ function getLonLat(request, response, city) {
 }
 
 
-// function getTrailsAPI(request, response, city) {
-//   let lonLatSQL = 'SELECT longitude, latitude, search_query FROM location WHERE search_query = $1;';
-//   let lat;
-//   let lon;
-//   client.query(lonLatSQL, [city])
-//     .then(results => {
-//       console.log('results', results);
-//       lon = results.rows[0].longitude;
-//       lat = results.rows[0].latitude;
-//       const TRAILS_URL = `https://www.hikingproject.com/data/get-trails?lat=${lat}&lon=${lon}&maxDistance=10&key=${TRAILS_API}`;
-//       superagent.get(TRAILS_URL)
-//         .then(trails => {
-//           let parseTrails = JSON.parse(trails.text);
-//           let trailsData = parseTrails.trails.map((value) => new Trail(value))
-//           response.json(trailsData);
-//           let SQL = 'INSERT INTO trails (search_query, trail_name, trail_location, trail_length, stars, star_votes, summary, trail_url, conditions, condition_date) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *;';
-//           trailsData.forEach(trail => {
-//             let insertTrail = [city, trail.name, trail.location, trail.length, trail.stars, trail.star_votes, trail.summary, trail.trail_url, trail.conditions, trail.conidtion_date];
-//             client.query(SQL, insertTrail)
-//               .then(() => {
-//               })
-//           })
-//         })
-//     })
-// }
-
-
-
-
 app.use(errorHandler);
 
 function errorHandler(error, request, response, next) {
