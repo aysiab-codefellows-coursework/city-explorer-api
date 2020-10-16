@@ -5,7 +5,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const superagent = require('superagent');
-const { json } = require('express');
+const { json, response } = require('express');
 const pg = require('pg');
 
 // constructing client for database
@@ -16,6 +16,8 @@ const client = new pg.Client(process.env.DATABASE_URL);
 const GEOCODE_API = process.env.GEOCODE_API_KEY;
 const WEATHER_API = process.env.WEATHER_API_KEY;
 const TRAILS_API = process.env.TRAILS_API_KEY;
+const YELP_API = process.env.YELP_API_KEY
+const MOVIE_API = process.env.MOVIE_DB_API_KEY
 
 
 const app = express();
@@ -31,6 +33,7 @@ app.get('/', (request, response) => {
 // Location
 app.get('/location', locationHandler);
 
+// Location object constructor
 function Location(city, geoData) {
   this.search_query = city;
   this.formatted_query = geoData.display_name;
@@ -38,6 +41,8 @@ function Location(city, geoData) {
   this.longitude = geoData.lon;
 }
 
+
+// Handles requests for location information
 function locationHandler(request, response) {
   const city = request.query.city;
   let select_locSQL = 'SELECT * FROM location WHERE search_query = $1;';
@@ -51,6 +56,8 @@ function locationHandler(request, response) {
     });
 }
 
+
+// Retrieve location information from Geocoding API if not in SQL databae
 function locationGetAPI(request,response, city) {
   const GEO_URL = `https://us1.locationiq.com/v1/search.php?key=${GEOCODE_API}&q=${city}&format=json`;
   superagent.get(GEO_URL)
@@ -69,12 +76,14 @@ function locationGetAPI(request,response, city) {
 // Weather
 app.get('/weather', weatherHandler);
 
+// Weather object constructor
 function Weather(data, city) {
   this.search_query = city;
   this.forecast = data.weather.description;
   this.time = data.datetime;
 }
 
+// Handles weather requests
 function weatherHandler(request, response) {
   const city = request.query.search_query;
   let select_weaSQL = 'SELECT * FROM weather WHERE search_query =$1;';
@@ -89,12 +98,12 @@ function weatherHandler(request, response) {
     .catch(err => console.log(err))
 }
 
+// Retrieve Weather information via API request if it doesn't exist in SQL database
 function weatherGetAPI(request, response, city) {
   const WEATH_URL = `https://api.weatherbit.io/v2.0/forecast/daily?city=${city}&key=${WEATHER_API}`;
   console.log(WEATH_URL);
   superagent.get(WEATH_URL)
     .then(weather => {
-      console.log('weather', weather);
       let parseWeather = JSON.parse(weather.text);
       let weatherData = parseWeather.data.map((value) => new Weather(value, city));
       response.json(weatherData);
@@ -114,6 +123,7 @@ function weatherGetAPI(request, response, city) {
 //Trails
 app.get('/trails',trailsHandler);
 
+// Trails Object Constructor
 function Trail(data) {
   this.name = data.name;
   this.location = data.location;
@@ -126,6 +136,7 @@ function Trail(data) {
   this.conidtion_date = data.conditionDate;
 }
 
+// Handles request and response to for the trails API
 function trailsHandler(request, response) {
   const city = request.query.search_query;
   let selectTrailsSQL = 'SELECT * FROM trails WHERE search_query = $1;';
@@ -133,7 +144,7 @@ function trailsHandler(request, response) {
     .then(results => {
       if(results.rows.length === 0) {
         if(!request.query.longitude || !request.query.latitude) {
-          getLonLat(request, response, city);                    
+          getLonLat(request, response, city);
         } else {
           getTrailsAPI(request, response, city, request.query.longitude, request.query.latitude);
         }
@@ -143,6 +154,7 @@ function trailsHandler(request, response) {
     })
 }
 
+// If Trails information doesn't exist in SQL database, make API request and get information
 function getTrailsAPI(request, response, city, lon, lat) {
   const TRAILS_URL = `https://www.hikingproject.com/data/get-trails?lat=${lat}&lon=${lon}&maxDistance=10&key=${TRAILS_API}`;
   superagent.get(TRAILS_URL)
@@ -154,12 +166,12 @@ function getTrailsAPI(request, response, city, lon, lat) {
       trailsData.forEach(trail => {
         let insertTrail = [city, trail.name, trail.location, trail.length, trail.stars, trail.star_votes, trail.summary, trail.trail_url, trail.conditions, trail.conidtion_date];
         client.query(SQL, insertTrail)
-          .then(() => {
-          })
+          .then(() => {});
       })
     })
 }
 
+// If Location information doesn't exist in SQL database, get the lon and lat to use for trails API
 function getLonLat(request, response, city) {
   let lonLatSQL = 'SELECT longitude, latitude, search_query FROM location WHERE search_query = $1;';
   let lat;
@@ -173,6 +185,97 @@ function getLonLat(request, response, city) {
 }
 
 
+app.get('/yelp', yelpHandler);
+
+function Yelp(data) {
+  this.name = data.name;
+  this.img = data.image_url;
+  this.price = data.price;
+  this.rating = data.rating;
+  this.url = data.url;
+}
+
+
+function yelpHandler(request, response) {
+  const city = request.query.search_query;
+  let selectYelpSQL = 'SELECT * FROM yelp WHERE search_query = $1;';
+  client.query(selectYelpSQL, [city])
+    .then(results => {
+      if(results.rows.length === 0) {
+        getYelpApi(request, response, city);
+      } else {
+        response.status(200).json(results.rows);
+      }
+    })
+}
+
+function getYelpApi(request, response, city) {
+  superagent
+    .get(`https://api.yelp.com/v3/businesses/search?location=${city}`)
+    .set('Authorization',`Bearer ${YELP_API}`)
+    .then( results => {
+      let parseYelp = JSON.parse(results.text);
+      let yelpData = parseYelp.businesses.map(result => new Yelp(result));
+      response.json(yelpData);
+      let SQL = 'INSERT INTO yelp (search_query, name, img, price, rating, url) VALUES ($1,$2,$3,$4,$5,$6);';
+      yelpData.forEach(result => {
+        let insertYelp = [city, result.name, result.img, result.price, result.rating, result.url];
+        client.query(SQL, insertYelp)
+          .then(() => {});
+      })
+    })
+}
+
+
+app.get('/movies', moviesHandler);
+
+function Movies(data) {
+  this.title = data.title;
+  this.overview = data.overview;
+  this.average_votes = data.vote_average;
+  this.total_votes = data.vote_count;
+  this.image_url = `https://image.tmdb.org/t/p/w500${data.poster_path}`;
+  this.populartiy = data.popularity;
+  this.released = data.released_date;
+}
+
+function moviesHandler(request, response) {
+  const city = request.query.search_query;
+  let selectMoviesSQL = 'SELECT * FROM movies WHERE search_query = $1;';
+  client.query(selectMoviesSQL,[city])
+    .then( results => {
+      if(results.rows.length === 0) {
+        getMoviesApi(request,response, city);
+      } else {
+        response.status(200).json(results.rows);
+      }
+    })
+}
+
+function getMoviesApi(request, response, city) {
+  const KEYWORD_URL = `https://api.themoviedb.org/3/search/keyword?api_key=${MOVIE_API}&query=${city}&page=1`;
+  superagent.get(KEYWORD_URL)
+    .then(results => {
+      let parseKeyword = JSON.parse(results.text);
+      const KEYWORD_ID = parseKeyword.results[0].id;
+      const MOVIE_URL = `https://api.themoviedb.org/3/keyword/${KEYWORD_ID}/movies?api_key=${MOVIE_API}&language=en-US&include_adult=false`;
+      superagent.get(MOVIE_URL)
+        .then(movies => {
+          let parseMovies = JSON.parse(movies.text);
+          let movieData = parseMovies.results.map(movie => new Movies(movie));
+          response.json(movieData);
+          let SQL = 'INSERT INTO movies (search_query, title, overview, average_votes, total_votes, image_url, popularity, released_on) VALUES($1,$2,$3,$4,$5,$6,$7,$8);';
+          movieData.forEach(movie => {
+            let insertMovie = [city, movie.title, movie.overview, movie.average_votes, movie.total_votes,movie.image_url, movie.popularity, movie.released];
+            client.query(SQL, insertMovie)
+              .then(() => {})
+          })
+        })
+    })
+}
+
+
+// `https://api.themoviedb.org/3/keyword/${KEYWORD_ID}/movies?api_key=${MOVIE_API}&language=en-US&include_adult=false`
 app.use(errorHandler);
 
 function errorHandler(error, request, response, next) {
